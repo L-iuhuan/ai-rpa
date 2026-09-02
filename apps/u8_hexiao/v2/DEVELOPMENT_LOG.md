@@ -44,15 +44,12 @@
 - fixer(ses_fbf17cd8effeJeD0Cg7mrzOoYi) 开发 gui.py(557行, tkinter+ttk): 连接测试/类型映射编辑/参数区/校准核销按钮(3秒采样)/计划·执行·停止(后台线程+队列日志)/统计显示
 - 验证: py_compile 通过, `python gui.py --smoke` → SMOKE OK, RapidOCR lazy加载确认
 
-### M6 实测调优 (待用户实测)
-- 已知待验证点: 核销按钮坐标需GUI校准; 下表联动刷新时间(row_settle_ms); MODIFY改数后单元格回车是否生效; 确认弹窗形态
+## 2026-09-01 (M0 前置增强)
 
-## 2026-09-01 (M0 前置增强 + monorepo 迁移)
+- 完成 AuditSink (`core/audit.py`) 与核销结果校验器 (`core/verifier.py`) 挂接 `core/runner.py`；审计失败/校验异常均不阻断主流程，仅落盘警告.
+- 新增 `tests/test_verifier.py`，覆盖 `verify_row_hexiao` 全部 6 大分支：VERIFIED(行消失/未核销数量变化/checkbox 变化)、VERIFY_FAIL(数值不变)、VERIFY_UNKNOWN(st_after.ok=False/行匹配歧义/数值缺失且无 checkbox 变化).
+- 修复 `tests/test_audit.py::test_io_failure_swallowed`: `AuditSink.start()` 仅在目录创建/初始化全部成功后才置 `_started=True`，并在 Windows 下显式检测只读目录属性，避免 IO 异常后进入半启动状态.
+- `main.py selftest` 扩展为「规则+审计+校验单测 + 视觉 fixture + audit 冒烟 + verifier 冒烟」六段式自检，均离线运行、不依赖实机/截图.
+- 项目整体从 `E:\3-其他资料\project\U8委外核销自动化` 迁移至 monorepo 新路径 `apps/u8_hexiao/v2`，代码零改动，仅目录移动.
+- 验证: `python -m unittest discover -s tests -v` → 37/37 PASS；`python main.py selftest` → 全部 PASS.
 
-- 平台决策: ai-rpa 平台方案定稿(council 三席辩论), 本项目迁入 monorepo `ai-rpa/apps/u8_hexiao`(纯目录移动, 代码零改动); 设计文档见 `ai-rpa/docs/specs/`
-- 新增 `core/audit.py` AuditSink: runs/YYYYMMDD-HHMMSS/ 审计落盘(steps.jsonl + screenshots/ + summary.json), IO 失败仅告警不阻断; 未 start 时全部 no-op
-- 新增 `core/verifier.py` verify_row_hexiao: 核销后重读表格校验行状态(行消失/未核销数量变化/checkbox变化=VERIFIED; 无变化=FAIL; 读失败/歧义=UNKNOWN), 纯函数
-- `core/runner.py` 挂接: 判定后 audit.step("judge") → 核销确认后截图 audit.step("post_hexiao") → 重读校验 audit.step("verify"); VERIFY_FAIL 计数不自动重试(财务红线)
-- 测试: 新增 test_audit.py(5) + test_verifier.py(9); 修复 test_io_failure_swallowed fixture——Windows 上 chmod 只读位不阻止目录写入, 改为"runs 路径被文件占用"制造确定性 IO 失败
-- main.py selftest 扩容: 单测发现模式 test_rules.py → test_*.py(规则+审计+校验全量), 新增审计冒烟+校验冒烟两段
-- 执行人: orchestrator 接管收尾(fixer 通道两次无终态停止, 见经验库 P-076 案例#0703 处理惯例)
