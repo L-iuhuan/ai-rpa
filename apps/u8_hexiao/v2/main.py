@@ -103,6 +103,23 @@ def vision_fixture_test():
     return ok
 
 
+def cmd_calibrate():
+    """交互式校准核销按钮坐标: 倒计时3秒后采样鼠标位置并写入config"""
+    import time
+    import pyautogui
+    from core import config as cfgmod
+    cfg = cfgmod.load_config()
+    print("即将校准核销按钮坐标: 3秒内把鼠标移到U8界面的[核销]按钮上并停住...")
+    for i in range(3, 0, -1):
+        print(f"  {i}...")
+        time.sleep(1)
+    x, y = pyautogui.position()
+    cfg["hexiao_button"] = [int(x), int(y)]
+    cfgmod.save_config(cfg)
+    print(f"已采样核销按钮坐标 = ({int(x)}, {int(y)}), 已保存到 config_v2.json")
+    return 0
+
+
 def cmd_plan():
     from core import vision, config as cfgmod
     from core.runner import Runner
@@ -143,6 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description="U8委外核销自动化 v2")
     sub = parser.add_subparsers(dest="mode", required=True)
     sub.add_parser("selftest", help="离线自检(不动鼠标)")
+    sub.add_parser("calibrate", help="校准核销按钮坐标(倒计时3秒采样鼠标)")
     sub.add_parser("plan", help="输出判定计划(不动鼠标)")
     p_run = sub.add_parser("run", help="执行核销循环(动鼠标)")
     p_run.add_argument("--rows", type=int, default=None, help="最多处理行数")

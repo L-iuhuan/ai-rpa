@@ -74,8 +74,8 @@ class App:
         root.columnconfigure(0, weight=0, minsize=430)
         root.columnconfigure(1, weight=1, minsize=420)
         root.rowconfigure(0, weight=0)
-        root.rowconfigure(1, weight=1)   # 规则区+日志区 拉伸
-        root.rowconfigure(2, weight=0)   # 操作区 固定
+        root.rowconfigure(1, weight=1)   # 规则区(左)/参数区(右) 拉伸
+        root.rowconfigure(2, weight=1)   # 操作区(左)/日志区(右) 拉伸
         root.rowconfigure(3, weight=0)
 
         self._build_status(root)
@@ -229,7 +229,9 @@ class App:
 
     def _build_log(self, root):
         frm = ttk.LabelFrame(root, text=" 运行日志 ", padding=6)
-        frm.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=(3, 6), pady=3)
+        # 2026-09-02修复: 原先 (row=1,column=1,rowspan=2) 与参数框(row=1,column=1)
+        # 同格重叠, 后渲染的日志框盖住参数框内的校准按钮 → 挪到独立格子(row=2)
+        frm.grid(row=2, column=1, sticky="nsew", padx=(3, 6), pady=3)
         frm.columnconfigure(0, weight=1)
         frm.rowconfigure(0, weight=1)
         self.txt_log = scrolledtext.ScrolledText(
