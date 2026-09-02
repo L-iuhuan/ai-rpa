@@ -47,8 +47,10 @@ class App:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("U8委外核销助手")
-        self.root.geometry("900x600")
-        self.root.minsize(880, 560)
+        # 2026-09-02: 规则表扩到6类型后左栏(规则配置+参数)超出600px默认高,
+        # "校准核销按钮"被裁出可视区(M0-③实机踩坑), 提高默认/最小尺寸
+        self.root.geometry("960x760")
+        self.root.minsize(900, 700)
         self.root.option_add("*Font", ("Microsoft YaHei UI", 10))
 
         self.cfg = load_config()
