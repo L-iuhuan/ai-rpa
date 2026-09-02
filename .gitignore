@@ -13,3 +13,6 @@ logs/
 apps/u8_hexiao/preview.png
 apps/u8_hexiao/selftest_input.png
 apps/u8_hexiao/v2/tests/fixtures/clipboard.png
+apps/u8_hexiao/v2/logs/
+apps/u8_hexiao/v2/tmp_*.py
+apps/u8_hexiao/v2/tmp_*.json

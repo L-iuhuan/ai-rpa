@@ -7,6 +7,7 @@
 """
 
 import os
+import time
 import ctypes
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
@@ -24,6 +25,7 @@ UPPER_ANCHORS = ["委外订单号", "采购类型", "入库数量", "件数"]
 LOWER_ANCHORS = ["出库数量", "未核销数量", "本次核销数量"]
 
 ROW_Y_TOL = 7          # 行聚类y容差(px)
+HEADER_BAND_TOL = 14   # 表头y带容差(px)——表头行各列文本块常有高低差, 用带聚合代替严格聚类
 HEADER_SEARCH_TOP = 0.02  # 表头搜索起点(窗口高度比例)
 
 
@@ -96,17 +98,41 @@ class OcrEngine:
 _OCR = OcrEngine()
 
 
+def _select_window(titles: List[str], title: str) -> Optional[int]:
+    """从窗口标题列表选目标: 精确匹配优先, 子串兜底; 返回索引或None.
+
+    背景(2026-09-02实锤): 用户环境同时存在 标题含"委外核销处理"的 Excel 文件
+    和 终端(路径含U8委外核销自动化), 子串匹配+取首个会随机选错窗口, 造成
+    间歇性"未找到表头"与"捕获到无关窗口内容"。
+    """
+    for i, t in enumerate(titles):
+        if t == title:
+            return i
+    for i, t in enumerate(titles):
+        if title in t:
+            return i
+    return None
+
+
 def grab_window(title: str):
     """定位窗口并截图, 返回 (img BGR, (win_left, win_top)) ; 找不到返回 (None, None)"""
     import pyautogui
     try:
         import pygetwindow as gw
-        wins = [w for w in gw.getAllWindows() if title in (w.title or "")]
-        if not wins:
+        wins = [w for w in gw.getAllWindows()]
+        idx = _select_window([(w.title or "") for w in wins], title)
+        if idx is None:
             return None, None
-        w = wins[0]
+        w = wins[idx]
         if w.isMinimized:
             w.restore()
+        try:
+            # 拉到前台再截屏: pyautogui截的是屏幕区域, 目标窗口被其他最大化
+            # 窗口遮挡时截到的是遮挡者; run模式的坐标点击也要求窗口在前台
+            w.activate()
+            time.sleep(0.15)
+        except Exception:
+            pass
         left, top = w.left, w.top
         img = pyautogui.screenshot(region=(left, top, w.width, w.height))
         return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR), (left, top)
@@ -126,17 +152,24 @@ def _match_header(band_blocks: List[Block], anchors: List[str], min_hits: int):
 
 
 def _header_y(blocks: List[Block], anchors: List[str], y_min: float, y_max: float) -> Optional[float]:
-    """在[y_min,y_max]内找包含锚点最多的块的y带(表头行y中心)"""
+    """在[y_min,y_max]内找锚点命中最多的y带(表头行y中心).
+
+    宽容表头分块: 以±HEADER_BAND_TOL的y带聚合统计锚点命中,
+    应对OCR把宽表头行拆成多个高度略有差异的文本块(各自带部分锚点)导致
+    严格行聚类下任何单聚类都凑不满2个锚点的间歇性失败.
+    """
     cand = [b for b in blocks if y_min <= b.cy <= y_max]
     if not cand:
         return None
-    # 按y聚类成行
-    rows = _cluster_rows(cand)
     best_y, best_hits = None, 0
-    for row in rows:
-        hits = _match_header(row, anchors, 2)
+    for b in cand:
+        band = [c for c in cand if abs(c.cy - b.cy) <= HEADER_BAND_TOL]
+        hits = 0
+        for a in anchors:
+            if any(a in c.text for c in band):
+                hits += 1
         if hits > best_hits:
-            best_y = sum(b.cy for b in row) / len(row)
+            best_y = sum(c.cy for c in band) / len(band)
             best_hits = hits
     return best_y if best_hits >= 2 else None
 
@@ -154,8 +187,8 @@ def _cluster_rows(blocks: List[Block], tol: float = ROW_Y_TOL) -> List[List[Bloc
 
 
 def _columns_from_header(blocks: List[Block], header_y: float) -> Dict[str, Tuple[float, float]]:
-    """表头行 -> {列名: (cx, half_width)}"""
-    header_row = [b for b in blocks if abs(b.cy - header_y) <= ROW_Y_TOL + 3]
+    """表头行 -> {列名: (cx, half_width)}; 与_header_y同带宽, 覆盖被拆分的表头块"""
+    header_row = [b for b in blocks if abs(b.cy - header_y) <= HEADER_BAND_TOL]
     cols = {}
     for b in header_row:
         cols[b.text] = (b.cx, (b.x1 - b.x0) / 2)
