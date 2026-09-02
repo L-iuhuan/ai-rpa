@@ -1,0 +1,17 @@
+{
+  "window_title": "核销",
+  "region": [0, 50, 108, 1395],
+  "template": "assets/checkbox_raw.png",
+  "match_threshold": 0.85,
+  "click_delay_ms": 200,
+  "scroll_clicks": 3,
+  "scroll_pause_ms": 400,
+  "max_screens": 3,
+  "hexiao_button": null,
+  "confirm_strategy": "enter",
+  "confirm_button": null,
+  "confirm_enter_times": 3,
+  "post_hexiao_wait_s": 1.5,
+  "max_clicks_total": 500,
+  "endless_scroll_guard": 2
+}

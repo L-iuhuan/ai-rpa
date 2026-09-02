@@ -1,0 +1,24 @@
+{
+  "window_title": "委外核销处理",
+  "type_map": {
+    "封测编": "A"
+  },
+  "type_map_note": "A=按件数核对(逐行), B=按数量核对(可批量); 未列出的采购类型一律SKIP留人工; 请在GUI中按实际维护",
+  "qty_tol": 0.005,
+  "pacing": {
+    "click_delay_ms": 200,
+    "scroll_clicks": 3,
+    "scroll_pause_ms": 400,
+    "max_screens": 3
+  },
+  "ocr": {
+    "lang": "zh-Hans-CN",
+    "min_confidence": 0.6
+  },
+  "hexiao_button": null,
+  "confirm_strategy": "enter",
+  "confirm_button": null,
+  "confirm_enter_times": 3,
+  "post_hexiao_wait_s": 1.5,
+  "max_clicks_total": 500
+}
