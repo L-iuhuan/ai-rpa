@@ -2,7 +2,7 @@
 """main.py — v2 CLI 入口
 
 用法:
-  python main.py selftest      规则引擎+视觉离线自检(fixture回归, 不动鼠标)
+  python main.py selftest      全量离线自检(规则+审计+校验单测/视觉fixture/冒烟, 不动鼠标)
   python main.py plan          截图当前窗口, 输出判定计划(不动鼠标)
   python main.py run           完整逐行核销循环(动鼠标!)
   python main.py run --rows 3  只处理前3行(试跑)
@@ -25,12 +25,53 @@ sys.path.insert(0, BASE_DIR)
 
 def cmd_selftest():
     import unittest
-    suite = unittest.defaultTestLoader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_rules.py")
+    suite = unittest.defaultTestLoader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_*.py")
     runner = unittest.TextTestRunner(verbosity=2)
     ok1 = runner.run(suite).wasSuccessful()
     ok2 = vision_fixture_test()
-    print(f"\n自检总结: 规则引擎={'PASS' if ok1 else 'FAIL'} 视觉fixture={'PASS' if ok2 else 'FAIL'}")
-    return 0 if (ok1 and ok2) else 1
+    ok3 = audit_smoke_test()
+    ok4 = verifier_smoke_test()
+    print(f"\n自检总结: 单测(规则+审计+校验)={'PASS' if ok1 else 'FAIL'} 视觉fixture={'PASS' if ok2 else 'FAIL'} "
+          f"审计冒烟={'PASS' if ok3 else 'FAIL'} 校验冒烟={'PASS' if ok4 else 'FAIL'}")
+    return 0 if (ok1 and ok2 and ok3 and ok4) else 1
+
+
+def audit_smoke_test():
+    """离线审计冒烟: 临时目录 start/step/summary 走一遍并断言产物存在"""
+    import tempfile
+    from core.audit import AuditSink
+    with tempfile.TemporaryDirectory() as td:
+        sink = AuditSink(base_dir=td)
+        sink.start(window_title="smoke", type_map={})
+        sink.step("smoke_step", {"k": 1})
+        sink.summary({"pass": 0}, {"verified": 0, "fail": 0, "unknown": 0})
+        runs_root = os.path.join(td, "runs")
+        run_dir = os.path.join(runs_root, os.listdir(runs_root)[0])
+        ok = (os.path.isfile(os.path.join(run_dir, "steps.jsonl"))
+              and os.path.isfile(os.path.join(run_dir, "summary.json")))
+        print(f"审计冒烟: {'PASS' if ok else 'FAIL'}")
+        return ok
+
+
+def verifier_smoke_test():
+    """离线校验冒烟: 构造核销前后状态, 断言 VERIFIED"""
+    from core.verifier import verify_row_hexiao, VERIFIED
+
+    class _R:
+        def __init__(self, y, q):
+            self.y, self._q = y, q
+        def num(self, col):
+            return self._q
+
+    class _S:
+        def __init__(self, rows):
+            self.ok, self.upper_rows = True, rows
+
+    before = _R(100, 50.0)
+    st_b, st_a = _S([before]), _S([_R(100, 30.0)])
+    ok = verify_row_hexiao(st_b, st_a, before) == VERIFIED
+    print(f"校验冒烟: {'PASS' if ok else 'FAIL'}")
+    return ok
 
 
 def vision_fixture_test():

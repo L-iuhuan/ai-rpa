@@ -70,19 +70,16 @@ class T_AuditSink(unittest.TestCase):
         self.assertIn("end_time", payload)
 
     def test_io_failure_swallowed(self):
-        """只读目录导致写入失败时, 不应抛异常"""
-        runs_dir = os.path.join(self.tmp.name, "runs")
-        os.makedirs(runs_dir)
-        # 将 runs 目录设为只读(Windows: 去掉写入权限)
-        os.chmod(runs_dir, 0o555)
-        try:
-            sink = AuditSink(base_dir=self.tmp.name)
-            sink.start()
-            sink.step("x", {})
-            sink.summary({}, {})
-            self.assertFalse(sink._started)
-        finally:
-            os.chmod(runs_dir, 0o755)
+        """runs 路径被文件占用导致创建失败时, 不应抛异常且不标记 started
+        (注: Windows 上 chmod 只读位不阻止目录写入, 故用"文件占位"制造确定性 IO 失败)"""
+        runs_path = os.path.join(self.tmp.name, "runs")
+        with open(runs_path, "w", encoding="utf-8") as f:
+            f.write("")  # runs 是文件而非目录 -> makedirs 必失败
+        sink = AuditSink(base_dir=self.tmp.name)
+        sink.start()
+        sink.step("x", {})
+        sink.summary({}, {})
+        self.assertFalse(sink._started)
 
 
 if __name__ == "__main__":

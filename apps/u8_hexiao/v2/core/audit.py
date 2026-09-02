@@ -33,6 +33,11 @@ class AuditSink:
             root = self.base_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             runs_root = os.path.join(root, "runs")
             os.makedirs(runs_root, exist_ok=True)
+            # 防御: Windows 下 os.chmod 0o555 仍会放行 makedirs/open,
+            # 但 st_file_attributes 会置 READONLY 位, 需要显式拒绝.
+            st = os.stat(runs_root)
+            if getattr(st, "st_file_attributes", 0) & 1:
+                raise PermissionError(f"{runs_root} 为只读目录")
             run_name = time.strftime("%Y%m%d-%H%M%S")
             self._run_dir = os.path.join(runs_root, run_name)
             self._shot_dir = os.path.join(self._run_dir, "screenshots")
@@ -40,13 +45,14 @@ class AuditSink:
             self._steps_path = os.path.join(self._run_dir, "steps.jsonl")
             # 先写空文件确保路径可用
             open(self._steps_path, "w", encoding="utf-8").close()
-            self._started = True
             self._seq = 0
             self._meta = {
                 "start_time": self._now_iso(),
                 "window_title": window_title,
                 "type_map": dict(type_map) if type_map else {},
             }
+            # 目录创建/元数据初始化全部成功后才置位
+            self._started = True
         except Exception as e:
             print(f"警告: audit start 失败: {e}")
             self._started = False
