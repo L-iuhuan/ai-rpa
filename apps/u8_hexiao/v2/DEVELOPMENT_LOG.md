@@ -51,5 +51,14 @@
 - 修复 `tests/test_audit.py::test_io_failure_swallowed`: `AuditSink.start()` 仅在目录创建/初始化全部成功后才置 `_started=True`，并在 Windows 下显式检测只读目录属性，避免 IO 异常后进入半启动状态.
 - `main.py selftest` 扩展为「规则+审计+校验单测 + 视觉 fixture + audit 冒烟 + verifier 冒烟」六段式自检，均离线运行、不依赖实机/截图.
 - 项目整体从 `E:\3-其他资料\project\U8委外核销自动化` 迁移至 monorepo 新路径 `apps/u8_hexiao/v2`，代码零改动，仅目录移动.
-- 验证: `python -m unittest discover -s tests -v` → 37/37 PASS；`python main.py selftest` → 全部 PASS.
+
+## 2026-09-02 (类型识别双层加固)
+
+- 实机 plan 验证发现「采购类型」OCR 误识率高(封测编→封规编/封测痛、FT测编委外加工→FI测编委外加工), 引入双层解析兜底:
+  - `core/typematch.py`: 白名单精确匹配 + 标准 Levenshtein 编辑距离模糊匹配(中文字符每字计 1, max_distance=2), 纯函数, 确定性层.
+  - `core/vlmtype.py`: `VLMTypeClassifier` 调用本地 vLLM 端点(Qwen3-VL-32B-Instruct@10.16.2.6:4435); HTTP 使用标准库 `urllib.request`, 图像编码使用已有 opencv+base64; VLM 失败永不抛出、永不阻断.
+  - `core/runner.py`: `__init__` 构建 known_types/classifier; 新增 `_resolve_type` 三层命中(exact→fuzzy→vlm), 在 `_process_row`/`plan` 的 `judge` 前插入类型解析; 解析结果写入 `audit.step("type_resolve")`.
+- `config_v2.json`: type_map 权威化为六项(CP委外/CU Pillar工艺委外/Cu Thick工艺委外= A; 封测编/FT测编委外加工/FT封装委外加工= B), 并修正「封测编」从旧 A 改为 B; 新增 `type_match.fuzzy_max_distance=2` 与 `vlm` 配置节.
+- 测试: 新增 `tests/test_typematch.py`(6 真实类型精确命中/大小写空格容错/实机误读样本/乱串并列) + `tests/test_vlmtype.py`(正常/噪声/UNKNOWN/异常四类 monkeypatch).
+- 验证: `python -m unittest discover -s tests -v` → 既有 37 + 新增全绿; `python main.py selftest` → 全部 PASS.
 

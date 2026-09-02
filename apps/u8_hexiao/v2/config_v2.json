@@ -1,9 +1,14 @@
 {
   "window_title": "委外核销处理",
   "type_map": {
-    "封测编": "A"
+    "CP委外": "A",
+    "CU Pillar工艺委外": "A",
+    "Cu Thick工艺委外": "A",
+    "封测编": "B",
+    "FT测编委外加工": "B",
+    "FT封装委外加工": "B"
   },
-  "type_map_note": "A=按件数核对(逐行), B=按数量核对(可批量); 未列出的采购类型一律SKIP留人工; 请在GUI中按实际维护",
+  "type_map_note": "A=按件数核对(逐行), B=按数量核对(可批量); 权威六类型：A类=CP委外/CU Pillar工艺委外/Cu Thick工艺委外；B类=封测编/FT测编委外加工/FT封装委外加工(旧配置'封测编'从A修正为B); 未列出的采购类型一律SKIP留人工",
   "qty_tol": 0.005,
   "pacing": {
     "click_delay_ms": 200,
@@ -14,6 +19,16 @@
   "ocr": {
     "lang": "zh-Hans-CN",
     "min_confidence": 0.6
+  },
+  "type_match": {
+    "fuzzy_max_distance": 2
+  },
+  "vlm": {
+    "enabled": true,
+    "base_url": "http://10.16.2.6:4435/v1",
+    "api_key": "GLHraSY5lHFIhp4KALgIiUS6WY-YUXrMa-acue4iHxSae8Fr9A",
+    "model": "Qwen3-VL-32B-Instruct",
+    "timeout_s": 30
   },
   "hexiao_button": null,
   "confirm_strategy": "enter",

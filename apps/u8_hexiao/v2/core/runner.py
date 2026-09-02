@@ -15,6 +15,8 @@ from .rules import UpperRow, LowerRow, judge, PASS, MODIFY, SKIP
 from .executor import SafetyStop
 from .audit import AuditSink
 from .verifier import verify_row_hexiao, VERIFIED, VERIFY_FAIL, VERIFY_UNKNOWN
+from . import typematch
+from .vlmtype import VLMTypeClassifier
 
 
 class Runner:
@@ -25,6 +27,19 @@ class Runner:
         self.audit = audit if audit is not None else AuditSink()
         self.template = template if template is not None else vision.load_template(cfg.get("template", "assets/checkbox_raw.png"))
         self.type_map = cfg.get("type_map", {})
+        self.known_types = list(self.type_map.keys())
+        self.type_match_cfg = cfg.get("type_match", {})
+        self.fuzzy_max_distance = int(self.type_match_cfg.get("fuzzy_max_distance", 2))
+        vlm_cfg = cfg.get("vlm", {})
+        self.classifier = None
+        if vlm_cfg.get("enabled"):
+            self.classifier = VLMTypeClassifier(
+                base_url=vlm_cfg.get("base_url", ""),
+                api_key=vlm_cfg.get("api_key", ""),
+                model=vlm_cfg.get("model", ""),
+                known_types=self.known_types,
+                timeout_s=float(vlm_cfg.get("timeout_s", 30)),
+            )
         self.tol = float(cfg.get("qty_tol", 0.005))
         p = cfg.get("pacing", {})
         self.row_settle_ms = float(p.get("row_settle_ms", 500))
@@ -70,6 +85,43 @@ class Runner:
             ))
         return out
 
+    def _resolve_type(self, raw, img, col_x, row_y) -> tuple:
+        """三层类型解析: exact -> fuzzy -> vlm. 返回 (resolved_known_or_None, method)."""
+        if raw is None:
+            return None, "none"
+        raw_norm = typematch.normalize(raw)
+        if not raw_norm:
+            return None, "none"
+
+        # 1) exact
+        for k in self.known_types:
+            if typematch.normalize(k) == raw_norm:
+                return k, "exact"
+
+        # 2) fuzzy
+        resolved = typematch.resolve_type(raw, self.known_types, self.fuzzy_max_distance)
+        if resolved is not None:
+            return resolved, "fuzzy"
+
+        # 3) vlm
+        if self.classifier is not None and img is not None:
+            try:
+                h, w = img.shape[:2]
+                x1 = max(0, int(col_x) - 8)
+                x2 = min(w, int(col_x) + 130)
+                y1 = max(0, int(row_y) - 13)
+                y2 = min(h, int(row_y) + 13)
+                if x1 < x2 and y1 < y2:
+                    cell_img = img[y1:y2, x1:x2]
+                    resolved, info = self.classifier.classify(cell_img)
+                    if resolved is not None:
+                        return resolved, "vlm"
+                    return None, f"vlm:{info}"
+            except Exception as e:
+                return None, f"vlm_error:{type(e).__name__}:{e}"
+
+        return None, "none"
+
     def _pick_next_row(self, st):
         """上表里下一个未处理行(从上到下, 跳过已处理y和合计行)"""
         for rd in st.upper_rows:
@@ -84,9 +136,17 @@ class Runner:
     def _wait_settle(self):
         time.sleep(self.row_settle_ms / 1000.0)
 
-    def _process_row(self, st, rd, off):
+    def _process_row(self, st, rd, off, img):
         """处理一行: 选中 -> 联动 -> 判定 -> 执行. 返回 action"""
-        # 1) 点击行选中(用行的委外订单号块位置; 没有则用行y+第一列)
+        # 1) 类型解析(exact/fuzzy/vlm)
+        col_x = st.upper_cols.get("采购类型", (60, 0))[0] if st.upper_cols else 60
+        raw_type = rd.cols.get("采购类型")
+        resolved_type, method = self._resolve_type(raw_type, img, col_x, rd.y)
+        purchase_type = resolved_type if resolved_type is not None else raw_type
+        self.log(f"类型解析 行y={rd.y:.0f} [{raw_type}] -> {resolved_type} ({method})")
+        self.audit.step("type_resolve", {"raw": raw_type, "resolved": resolved_type, "method": method})
+
+        # 2) 点击行选中(用行的委外订单号块位置; 没有则用行y+第一列)
         anchor_block = rd.cols.get("委外订单号")
         click_x = None
         if anchor_block is not None and st.upper_cols.get("委外订单号"):
@@ -97,7 +157,7 @@ class Runner:
         self._processed_ys.append(rd.y)
         self._wait_settle()
 
-        # 2) 重读下表(联动刷新后)
+        # 3) 重读下表(联动刷新后)
         img2, off2, st2 = self._read()
         if not st2.ok:
             self.stats["error"] += 1
@@ -108,12 +168,12 @@ class Runner:
         lowers = [lw for lw, lrd in zip(lowers, st2.lower_rows)
                   if "合计" not in "".join(lrd.cols.values())]
 
-        # 3) 规则判定
-        dec = judge(rd.cols.get("采购类型"), self._to_upper(rd), lowers, self.type_map, self.tol)
-        self.log(f"行y={rd.y:.0f} [{rd.cols.get('采购类型','?')}] -> {dec.action}: {dec.reason}")
+        # 4) 规则判定
+        dec = judge(purchase_type, self._to_upper(rd), lowers, self.type_map, self.tol)
+        self.log(f"行y={rd.y:.0f} [{purchase_type}] -> {dec.action}: {dec.reason}")
         self.audit.step("judge", {"row_y": rd.y, "action": dec.action, "reason": dec.reason})
 
-        # 4) 执行
+        # 5) 执行
         if dec.action == SKIP:
             self.stats["skip"] += 1
             return SKIP
@@ -140,7 +200,7 @@ class Runner:
         self.ex.confirm_dialog()
         self.stats["pass" if dec.action == PASS else "modify"] += 1
 
-        # 5) 核销结果校验
+        # 6) 核销结果校验
         try:
             post_img, _ = self._grab()
             self.audit.step("post_hexiao", img=post_img)
@@ -201,7 +261,7 @@ class Runner:
                 time.sleep(3)
                 countdown_done = True
             try:
-                self._process_row(st, rd, off)
+                self._process_row(st, rd, off, img)
             except SafetyStop as e:
                 self.log(f"安全停止: {e}")
                 break
@@ -236,17 +296,24 @@ class Runner:
             self.log(f"读取失败: {st.msg}")
             return []
         plans = []
+        col_x = st.upper_cols.get("采购类型", (60, 0))[0] if st.upper_cols else 60
         for rd in st.upper_rows:
             txt = "".join(rd.cols.values())
             if "合计" in txt:
                 continue
-            dec = judge(rd.cols.get("采购类型"), self._to_upper(rd),
+            raw_type = rd.cols.get("采购类型")
+            resolved_type, method = self._resolve_type(raw_type, img, col_x, rd.y)
+            purchase_type = resolved_type if resolved_type is not None else raw_type
+            self.log(f"计划 类型解析 行y={rd.y:.0f} [{raw_type}] -> {resolved_type} ({method})")
+            self.audit.step("type_resolve", {"raw": raw_type, "resolved": resolved_type, "method": method})
+            dec = judge(purchase_type, self._to_upper(rd),
                         self._to_lowers([]), self.type_map, self.tol)
             plans.append({
-                "y": rd.y, "采购类型": rd.cols.get("采购类型", ""),
-                "入库数量": rd.cols.get("入库数量", ""), "件数": rd.cols.get("件数", ""),
+                "y": rd.y, "采购类型": raw_type, "resolved_type": resolved_type,
+                "method": method, "入库数量": rd.cols.get("入库数量", ""),
+                "件数": rd.cols.get("件数", ""),
                 "action": dec.action, "reason": dec.reason,
             })
-            self.log(f"计划 行y={rd.y:.0f} [{rd.cols.get('采购类型','?')}] {dec.action}: {dec.reason}")
+            self.log(f"计划 行y={rd.y:.0f} [{purchase_type}] {dec.action}: {dec.reason}")
         self.log(f"共 {len(plans)} 行(注意: dry-run未逐行联动, 下表数据未读取, 仅按上表预判)")
         return plans
