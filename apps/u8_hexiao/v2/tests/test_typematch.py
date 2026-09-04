@@ -55,6 +55,17 @@ class T_resolve_type(unittest.TestCase):
     def test_distance_more_than_max(self):
         self.assertIsNone(resolve_type("完全不同", KNOWN, max_distance=1))
 
+    def test_truncated_prefix_match(self):
+        """U8窄列截断显示(2026-09-04实锤): 'CU Pillar工艺委外'显示为'CUPilla..'等,
+        normalize去省略号后按唯一前缀采纳"""
+        self.assertEqual(resolve_type("CUPilla..", KNOWN), "CU Pillar工艺委外")
+        self.assertEqual(resolve_type("CUPill...", KNOWN), "CU Pillar工艺委外")
+        self.assertEqual(resolve_type("Cu Thick工.", KNOWN), "Cu Thick工艺委外")
+
+    def test_short_prefix_rejected(self):
+        """归一化后<5字符的短前缀不采纳, 防误配"""
+        self.assertIsNone(resolve_type("CU Pi", KNOWN))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

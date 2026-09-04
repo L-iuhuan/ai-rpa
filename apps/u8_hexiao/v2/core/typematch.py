@@ -1,19 +1,24 @@
 # -*- coding: utf-8 -*-
 """typematch.py — 采购类型白名单匹配(确定性层)
 
-- normalize: 去全部空白 + casefold
-- resolve_type: 先精确等值, 再标准 Levenshtein 编辑距离(中文字符每字计 1)模糊匹配,
-  唯一最近且距离≤max_distance 才返回 known 原文.
+- normalize: 去全部空白 + 去截断省略号(.…) + casefold
+- resolve_type: 精确等值 -> 唯一前缀(U8窄列截断显示容错) -> Levenshtein 模糊匹配,
+  各层唯一命中才返回 known 原文.
 """
 
 from typing import List, Optional
 
 
 def normalize(s) -> str:
-    """去全部空白(含制表符/全角空格) + casefold."""
+    """去全部空白(含制表符/全角空格) + 截断省略号(.…) + casefold.
+
+    2026-09-04实锤: U8 采购类型列过窄, "CU Pillar工艺委外"被截断显示为
+    "CUPilla..", OCR 读到的就是带省略号的截断文本.
+    """
     if s is None:
         return ""
-    return "".join(str(s).split()).casefold()
+    t = "".join(str(s).split())
+    return t.replace("…", "").replace(".", "").casefold()
 
 
 def _levenshtein(a: str, b: str) -> int:
@@ -45,7 +50,14 @@ def resolve_type(raw: str, known: List[str], max_distance: int = 2) -> Optional[
         if normalize(k) == raw_norm:
             return k
 
-    # 2) Levenshtein 模糊匹配
+    # 2) 唯一前缀匹配: U8 窄列截断显示容错(如"CUPilla.."->"CU Pillar工艺委外")
+    #    长度门槛>=5 防短前缀误配
+    if len(raw_norm) >= 5:
+        prefix_hits = [k for k in known if normalize(k).startswith(raw_norm)]
+        if len(prefix_hits) == 1:
+            return prefix_hits[0]
+
+    # 3) Levenshtein 模糊匹配
     candidates = []
     for k in known:
         d = _levenshtein(raw_norm, normalize(k))
