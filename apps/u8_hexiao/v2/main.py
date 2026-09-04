@@ -114,9 +114,14 @@ def cmd_calibrate():
         print(f"  {i}...")
         time.sleep(1)
     x, y = pyautogui.position()
+    # 存窗口内相对坐标(点击时加实时窗口偏移, 窗口移动/缩放不失效)
+    from core import vision
+    _, off = vision.grab_window(cfg.get("window_title", "委外核销处理"))
+    if off:
+        x, y = x - off[0], y - off[1]
     cfg["hexiao_button"] = [int(x), int(y)]
     cfgmod.save_config(cfg)
-    print(f"已采样核销按钮坐标 = ({int(x)}, {int(y)}), 已保存到 config_v2.json")
+    print(f"已采样核销按钮坐标(窗口内) = ({int(x)}, {int(y)}), 已保存到 config_v2.json")
     return 0
 
 

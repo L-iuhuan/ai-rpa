@@ -30,7 +30,10 @@
     "model": "Qwen3-VL-32B-Instruct",
     "timeout_s": 30
   },
-  "hexiao_button": null,
+  "hexiao_button": [
+    96,
+    42
+  ],
   "confirm_strategy": "enter",
   "confirm_button": null,
   "confirm_enter_times": 3,

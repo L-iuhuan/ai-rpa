@@ -59,19 +59,25 @@ class Executor:
         self.log(f"修正 {desc}: ({sx},{sy}) 输入 {value}")
 
     def press_hexiao(self):
-        """点击核销按钮; 未校准坐标时用 OCR 自动定位按钮(exact文本块"核销")"""
+        """点击核销按钮. config坐标为窗口内相对坐标(点击时加实时窗口偏移);
+        未配置时用 OCR 自动定位按钮(exact文本块"核销")"""
+        from . import vision
+        win_title = self.cfg.get("window_title", "")
+        _, off = vision.grab_window(win_title)
+        if off is None:
+            raise SafetyStop("核销前未找到目标窗口, 终止(请确认U8界面已打开)")
         btn = self.cfg.get("hexiao_button")
-        if not btn:
-            from . import vision
-            img, off = vision.grab_window(self.cfg.get("window_title", ""))
-            if img is None:
-                raise SafetyStop("无法自动定位核销按钮(窗口未找到), 请先运行 calibrate 校准")
-            pos = vision.find_button_center(img, "核销")
+        if btn:
+            sx, sy = btn[0] + off[0], btn[1] + off[1]
+            self.log(f"核销按钮(配置窗口坐标{btn}+窗口偏移{off}): ({int(sx)},{int(sy)})")
+        else:
+            img, _ = vision.grab_window(win_title)
+            pos = vision.find_button_center(img, "核销") if img is not None else None
             if pos is None:
                 raise SafetyStop("OCR未找到[核销]按钮文本块, 请运行 calibrate 手动校准")
-            btn = [pos[0] + off[0], pos[1] + off[1]]
-            self.log(f"OCR自动定位核销按钮: ({int(btn[0])},{int(btn[1])})")
-        self.click(btn[0], btn[1], "核销按钮")
+            sx, sy = pos[0] + off[0], pos[1] + off[1]
+            self.log(f"OCR自动定位核销按钮: ({int(sx)},{int(sy)})")
+        self.click(sx, sy, "核销按钮")
         time.sleep(float(self.cfg.get("pacing", {}).get("post_hexiao_wait_s", 1.2)))
 
     def confirm_dialog(self):
