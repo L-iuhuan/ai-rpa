@@ -123,15 +123,24 @@ class Runner:
         return None, "none"
 
     def _pick_next_row(self, st):
-        """上表里下一个未处理行(从上到下, 跳过已处理y和合计行)"""
+        """上表里下一个未处理行. 优先选"采购类型"可读的行, 类型缺失的行沉底.
+
+        2026-09-04实锤: 初始读屏偶发漏检下表头时, 上表行扫描延伸到底部会把
+        下表数据行当幻影行纳入(其采购类型列恒为None)——优先选有类型的行,
+        幻影行天然沉底; 处理真实行后下表通常已被正确检出, 幻影自然消失.
+        """
+        fallback = None
         for rd in st.upper_rows:
             if any(abs(rd.y - py) <= 8 for py in self._processed_ys):
                 continue
             txt = "".join(rd.cols.values())
             if "合计" in txt:
                 continue
-            return rd
-        return None
+            if rd.cols.get("采购类型"):
+                return rd
+            if fallback is None:
+                fallback = rd
+        return fallback
 
     def _wait_settle(self):
         time.sleep(self.row_settle_ms / 1000.0)
