@@ -16,3 +16,4 @@ apps/u8_hexiao/v2/tests/fixtures/clipboard.png
 apps/u8_hexiao/v2/logs/
 apps/u8_hexiao/v2/tmp_*.py
 apps/u8_hexiao/v2/tmp_*.json
+apps/u8_hexiao/v2/tmp_*.png
