@@ -1,0 +1,10 @@
+找到 3 个 VSFlexGrid8U
+探测 Grid#0 hwnd=464880
+GetTypeInfoCount=1
+GetTypeInfo失败: COMError: (-2147319765, '找不到元素。', (None, None, None, 0, None))
+DISPID可解析: []
+不可解析: ['Rows', 'Cols', 'TextMatrix', 'Row', 'Col', 'Text', 'Value', 'CellTop', 'CellLeft', 'FixedRows', 'FindRow', 'accValue', 'accName', 'accChildCount', 'accRole', 'accSelection']
+accChildCount 失败: COMError
+accName 失败: COMError
+accRole 失败: COMError
+accValue 失败: COMError

@@ -83,3 +83,18 @@
 - 已派调研(librarian): ①用友U8官方接口(U8API/EAI/OpenAPI 委外核销覆盖面) ②UIA正确姿势重测(定向查询+CacheRequest, 当年全树枚举120s超时的否决可能是方法问题) ③商业RPA(UiPath/影刀)对PB老应用的实际做法
 - 沉淀资产(不被推翻): 安全机制(急停/预算/审计)、规则引擎、verifier、类型封闭集匹配思想、窗口管理——新路线可直接复用; 浏览器 lane(Playwright)不受影响
 
+## 2026-09-04 (路线转折: v3「HWND几何+键盘+剪贴板」实证成立)
+
+- 替代路线调研(lib-3) + 5轮只读探测(hwnd/uia/com/grid) + 3轮实机隔离测试, 结论:
+  - UIA: U8窗体是VB6(ThunderRT6类), 树不透明, 死
+  - COM: WM_GETOBJECT可取IDispatch但晚绑定无成员; IAccessible早绑定QI成功(accChildCount=116)但accName/accValue全空; OCX类型库加载阻塞(UFFlexGrid触发comtypes解析bug)
+  - **金矿组合**: EnumChildWindows 0.01秒枚举103个子HWND(3个VSFlexGrid8U表格+17个Button+9个Edit), 几何完全确定
+- **剪贴板数据通道实证**:
+  - 单格: 点击→Ctrl+C→CF_UNICODETEXT 精确文本(CGRK单号/6位小数/完整类型名"FT测编委外加工"不再截断)
+  - 范围: 手工Shift+方向键在下表区域复制出13行×10列制表符文本; 上表程序化Shift+Down不扩选(仅单格)——批量读取待实现期解决(拖选/下表范围/逐格导航兜底)
+  - 点击落点验证: y=150/y=250两处单格复制结果不同(A≠B), HWND坐标点击+读取双精确
+- **v3架构定案**: 感知层=EnumChildWindows+GetWindowRect; 数据层=键盘导航+Ctrl+C剪贴板; 执行层=HWND坐标点击; 验证层=操作后复制比对. 平台资产(规则/审计/verifier/安全/类型匹配/浏览器lane)全部复用
+- 速度对比: 单格读<1秒 vs OCR整窗10-15秒; 可靠性: 字符级精确零误读 vs 形近字误读致业务错判
+- 探测脚本: tmp_uia_probe.py / tmp_hwnd_probe.py / tmp_grid_probe*.py / tmp_v3_proof*.py / tmp_clipboard_read.py (tmp_*不入库)
+
+

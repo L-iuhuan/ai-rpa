@@ -1,0 +1,21 @@
+IDispatch 已取得: <POINTER(IDispatch) ptr=0x1fa922b8fc8 at 1fa926c0d50>
+==================================================
+IAccessible vtable 失败: ModuleNotFoundError: No module named 'comtypes.gen.OleAcc'
+==================================================
+OCX候选(18):
+  D:\U8SOFT\AppServer\Bin\OCAPI\bin\AxInterop.VSFlex8.dll
+  D:\U8SOFT\AppServer\Bin\OCAPI\bin\Interop.MSHierarchicalFlexGridLib.dll
+  D:\U8SOFT\AppServer\Bin\OCAPI\bin\Interop.VSFlex8.dll
+  D:\U8SOFT\AppServer\Bin\OCAPI\bin\Interop.VSFlex8N.dll
+  D:\U8SOFT\Interop\AxInterop.VSFlex8.dll
+  D:\U8SOFT\Interop\Interop.MSHierarchicalFlexGridLib.dll
+  D:\U8SOFT\Interop\Interop.VSFlex8.dll
+  D:\U8SOFT\Interop\Interop.VSFlex8N.dll
+  D:\U8SOFT\U8M\U8MFlexGrid.dll
+  D:\U8SOFT\U8M\U8MFlexGridList.dll
+加载 typelib: D:\U8SOFT\AppServer\Bin\OCAPI\bin\AxInterop.VSFlex8.dll
+  失败: OSError: [WinError -2147312566] 加载类型库/DLL 时出错。
+加载 typelib: D:\U8SOFT\AppServer\Bin\OCAPI\bin\Interop.MSHierarchicalFlexGridLib.dll
+  失败: OSError: [WinError -2147312566] 加载类型库/DLL 时出错。
+加载 typelib: D:\U8SOFT\AppServer\Bin\OCAPI\bin\Interop.VSFlex8.dll
+  失败: OSError: [WinError -2147312566] 加载类型库/DLL 时出错。

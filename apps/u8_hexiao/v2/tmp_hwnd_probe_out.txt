@@ -1,0 +1,29 @@
+目标 hwnd=1319932
+EnumChildWindows: 103 个子HWND, 耗时 0.01s
+类名分布:
+   18 x ThunderRT6UserControlDC
+   17 x Button
+   15 x ComboBox
+   12 x ThunderRT6OptionButton
+    9 x Edit
+    4 x ThunderRT6PictureBoxDC
+    3 x DTPicker20WndClass
+    3 x msvb_lib_updown
+    3 x Static
+    3 x ListBox
+    3 x AdodcWndClass
+    3 x ThunderRT6CommandButton
+    3 x VSFlexGrid8U
+    2 x AfxOleControl42u
+    1 x ProgressBarWndClass
+    1 x Toolbar20WndClass
+    1 x msvb_lib_toolbar
+    1 x ReBarWindow32
+    1 x ToolbarWindow32
+
+有文本的子HWND(0个), 前25个:
+
+疑似网格类HWND(3个), 前20个:
+  hwnd=464880 cls=VSFlexGrid8U
+  hwnd=1315488 cls=VSFlexGrid8U
+  hwnd=463272 cls=VSFlexGrid8U

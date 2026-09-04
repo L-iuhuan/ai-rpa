@@ -1,0 +1,16 @@
+============================================================
+B: U8安装与COM组件探测(只读注册表)
+  [安装目录] D:\U8SOFT 存在
+  [COM候选] 25 个: ['.m3u8', 'Admin.U8.SysStartService.StartService', 'Cell.Cell50Ctrl.U8', 'HRU8TMCheck.clsCheck', 'HRU8TrainCommon.clsSendEmail', 'HRU8TrainCommon.clsSendSms', 'HRU8TrainCommon.ctlMouseWheel', 'HRU8TrainCommon.DataFileExporter', 'HRU8TrainCommon.DataPrinter', 'HRU8TrainCommon.Department', 'HRU8TrainCommon.DepartmentItem', 'HRU8TrainCommon.DepartmentTree', 'HRU8TrainCommon.MessageBag', 'HRU8TrainCommon.MessageReceiver', 'HRU8TrainCommon.MessageSender', 'HRU8TrainCommon.ResultInfo', 'HRU8TrainCommon.Splitter', 'HY_PDM_SendMessage_U8.cSendMessage', 'IufoNew.IufoForU8New', 'PFERPWebservice.U8Service', 'PFPdmWebservice.U8Service', 'PZU8toNC.clsPZU8toNC', 'Toll.U8.CD.AP.PaymentRequisition.clsBtnLinkCc', 'Toll.U8.CD.AP.PaymentRequisition.clsEventLinkCc', 'Toll.U8.CD.AP.PaymentRequisition.Repository']
+============================================================
+A: UIA定向探测(pygetwindow定位句柄, 不全局枚举)
+  hwnd=1319932 (pygetwindow定位 0.0s)
+  UIA包装耗时: 0.0s
+  一层children(4个)耗时: 0.2s
+   - Pane cls=ThunderRT6PictureBoxDC name=''
+   - Pane cls=ThunderRT6PictureBoxDC name=''
+   - Pane cls=ThunderRT6UserControlDC name=''
+   - Button cls=Button name=''
+  第二层(kids[0]的children=1个)耗时: 0.0s
+   * Pane cls=ThunderRT6UserControlDC name=''
+探测完成(全程只读)

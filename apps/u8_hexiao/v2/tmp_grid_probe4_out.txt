@@ -1,0 +1,6 @@
+IDispatch 已取得
+oleacc生成模块: ['Accessibility']
+注册表OCX命中(1):
+  {a8679153-843f-467f-ad7e-f429328f7568} -> C:\WINDOWS\System32\vmflexio.dll
+加载typelib: C:\WINDOWS\System32\vmflexio.dll
+  失败: OSError: [WinError -2147312566] 加载类型库/DLL 时出错。
