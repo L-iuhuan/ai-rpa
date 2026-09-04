@@ -98,6 +98,21 @@ class OcrEngine:
 _OCR = OcrEngine()
 
 
+def find_button_center(img, text: str) -> Optional[Tuple[float, float]]:
+    """全窗口找精确文本块(如工具栏按钮"核销"), 返回窗口内中心坐标 or None.
+
+    用于按钮的免校准自动定位: 按钮标签是独立文本块, 与表格列头(如"未核销数量")
+    /窗口标题("委外核销处理")的包含关系区分——只认整块精确等于 text 的块.
+    多个命中取最靠上的(工具栏在窗口上部).
+    """
+    blocks = _OCR.blocks(img)
+    cands = [b for b in blocks if b.text == text]
+    if not cands:
+        return None
+    b = min(cands, key=lambda blk: blk.cy)
+    return ((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)
+
+
 def _select_window(titles: List[str], title: str) -> Optional[int]:
     """从窗口标题列表选目标: 精确匹配优先, 子串兜底; 返回索引或None.
 

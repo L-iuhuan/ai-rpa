@@ -59,10 +59,18 @@ class Executor:
         self.log(f"修正 {desc}: ({sx},{sy}) 输入 {value}")
 
     def press_hexiao(self):
-        """点击核销按钮"""
+        """点击核销按钮; 未校准坐标时用 OCR 自动定位按钮(exact文本块"核销")"""
         btn = self.cfg.get("hexiao_button")
         if not btn:
-            raise SafetyStop("核销按钮坐标未校准(config_v2.json: hexiao_button), 请先在GUI中校准")
+            from . import vision
+            img, off = vision.grab_window(self.cfg.get("window_title", ""))
+            if img is None:
+                raise SafetyStop("无法自动定位核销按钮(窗口未找到), 请先运行 calibrate 校准")
+            pos = vision.find_button_center(img, "核销")
+            if pos is None:
+                raise SafetyStop("OCR未找到[核销]按钮文本块, 请运行 calibrate 手动校准")
+            btn = [pos[0] + off[0], pos[1] + off[1]]
+            self.log(f"OCR自动定位核销按钮: ({int(btn[0])},{int(btn[1])})")
         self.click(btn[0], btn[1], "核销按钮")
         time.sleep(float(self.cfg.get("pacing", {}).get("post_hexiao_wait_s", 1.2)))
 
