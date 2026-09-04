@@ -175,23 +175,60 @@ def _match_header(band_blocks: List[Block], anchors: List[str], min_hits: int):
     return hits
 
 
+def _edit_distance(a: str, b: str) -> int:
+    """标准 Levenshtein(小串专用, 表头锚点长度<=8)"""
+    if len(a) < len(b):
+        a, b = b, a
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _fuzzy_contains(text: str, anchor: str, max_dist: int = 1) -> bool:
+    """锚点在拼接文本中的模糊包含: 精确子串或任一滑窗编辑距离<=max_dist.
+
+    实机踩坑(2026-09-04): OCR 把"出库数量"读成"出库教量"、"未核销数量"读成
+    "未核销激量"、"本次核销数量"读成"本次核销全额"(数↔教/激/全 形近字),
+    精确子串匹配只剩1个锚点, 差一个过不了>=2门槛.
+    """
+    if anchor in text:
+        return True
+    La, Lt = len(anchor), len(text)
+    if La < 3 or Lt < La - max_dist:
+        return False
+    for start in range(0, Lt - max(1, La - max_dist) + 1):
+        for L in (La - 1, La, La + 1):
+            if 0 < L and start + L <= Lt:
+                if _edit_distance(text[start:start + L], anchor) <= max_dist:
+                    return True
+    return False
+
+
 def _header_y(blocks: List[Block], anchors: List[str], y_min: float, y_max: float) -> Optional[float]:
     """在[y_min,y_max]内找锚点命中最多的y带(表头行y中心).
 
-    宽容表头分块: 以±HEADER_BAND_TOL的y带聚合统计锚点命中,
-    应对OCR把宽表头行拆成多个高度略有差异的文本块(各自带部分锚点)导致
-    严格行聚类下任何单聚类都凑不满2个锚点的间歇性失败.
+    双重容错(实机踩坑沉淀):
+    1. 纵向: ±HEADER_BAND_TOL 的y带聚合, 应对表头行各列文本块y中心有高低差;
+    2. 横向: 带内块按x排序后拼接成整串文本再匹配锚点, 应对OCR把
+       "出库数量"打碎成"出库"+"数量"两块的情况(2026-09-04实锤);
+    3. 形近字: 锚点用编辑距离<=1的滑窗模糊匹配, 应对 数↔教/激/全 类误读
+       (2026-09-04实锤: 下表表头3锚点仅1个精确命中).
+    注: 上表头的"入库数量"与"出库数量"距离仅1, 但下表搜索范围从 up_y+10
+    开始, 上表头天然被排除, 无交叉污染.
     """
     cand = [b for b in blocks if y_min <= b.cy <= y_max]
     if not cand:
         return None
     best_y, best_hits = None, 0
     for b in cand:
-        band = [c for c in cand if abs(c.cy - b.cy) <= HEADER_BAND_TOL]
-        hits = 0
-        for a in anchors:
-            if any(a in c.text for c in band):
-                hits += 1
+        band = sorted([c for c in cand if abs(c.cy - b.cy) <= HEADER_BAND_TOL],
+                      key=lambda c: c.cx)
+        joined = "".join(c.text for c in band)
+        hits = sum(1 for a in anchors if _fuzzy_contains(joined, a))
         if hits > best_hits:
             best_y = sum(c.cy for c in band) / len(band)
             best_hits = hits

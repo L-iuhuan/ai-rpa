@@ -21,6 +21,36 @@ def blk(text, cx, cy):
 
 
 class T_HeaderY(unittest.TestCase):
+    def test_horizontally_fragmented_anchor(self):
+        """OCR把"出库数量"打碎成"出库"+"数量"两个相邻块 -> 带内按x拼接后仍命中(2026-09-04实锤场景)"""
+        blocks = [
+            blk("委外订单号", 100, 70), blk("采购类型", 300, 70),
+            blk("入库数量", 500, 70), blk("件数", 650, 70),
+            blk("未核销数量", 600, 722),
+            blk("出库", 400, 724), blk("数量", 435, 724),  # 碎块
+        ]
+        low_y = _header_y(blocks, LOWER_ANCHORS, 80, 1400)
+        self.assertIsNotNone(low_y, "碎块'出库'+'数量'拼接后应命中'出库数量'锚点")
+
+    def test_confusable_char_misread(self):
+        """形近字误读: 出库教量/未核销激量/本次核销全额(数↔教/激/全) -> 模糊匹配仍命中(2026-09-04实锤)"""
+        blocks = [
+            blk("委外订单号", 100, 70), blk("采购类型", 300, 70),
+            blk("入库数量", 500, 70), blk("件数", 650, 70),
+            blk("出库教量", 1070, 721),           # 数→教
+            blk("未核销激量待核销绝对数量", 1487, 721),  # 数→激+合并
+            blk("本次核销全额", 1771, 721),        # 数→全
+        ]
+        low_y = _header_y(blocks, LOWER_ANCHORS, 80, 1400)
+        self.assertIsNotNone(low_y, "形近字误读下模糊锚点匹配应命中>=2")
+
+    def test_upper_in库_not_confused_when_excluded(self):
+        """上表'入库数量'与'出库数量'距离1, 但下表搜索从up_y+10开始天然排除"""
+        blocks = [blk("入库数量", 500, 70), blk("出库单号", 100, 70)]
+        # 上表头区域若被误纳入下表搜索范围, 单靠"入库数量"模糊命中"出库数量"
+        # 只得1锚点, 仍不过>=2门槛
+        self.assertIsNone(_header_y(blocks, LOWER_ANCHORS, 80, 1400))
+
     def test_split_lower_header_now_found(self):
         """下表表头被OCR拆成两个高度差8px的块, 各带1-2个锚点 -> 带聚合后仍能命中"""
         blocks = [
