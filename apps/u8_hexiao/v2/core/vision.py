@@ -283,10 +283,15 @@ class TableState:
     lower_cols: Dict[str, Tuple[float, float]] = field(default_factory=dict)
     upper_rows: List[RowData] = field(default_factory=list)
     lower_rows: List[RowData] = field(default_factory=list)
+    lower_found: bool = True  # False=初始态下表未显示(点击上表行后才出现, U8实际行为)
 
 
 def read_tables(img, template=None, threshold=0.8) -> TableState:
-    """整图 -> 上下表结构化. img为窗口截图(BGR)"""
+    """整图 -> 上下表结构化. img为窗口截图(BGR)
+
+    下表为可选: U8 委外核销界面初始状态不显示下表, 点击上表行后才出现.
+    上表头缺失才是硬失败; 下表头缺失时 lower_found=False, 下表结构留空.
+    """
     blocks = _OCR.blocks(img)
     H = img.shape[0]
     if not blocks:
@@ -296,18 +301,22 @@ def read_tables(img, template=None, threshold=0.8) -> TableState:
     if up_y is None:
         return TableState(False, "未找到上表表头(锚点: 委外订单号/采购类型/入库数量/件数)")
     low_y = _header_y(blocks, LOWER_ANCHORS, up_y + 10, H * 0.98)
-    if low_y is None:
-        return TableState(False, "未找到下表表头(锚点: 出库数量/未核销数量/本次核销数量)")
+    lower_found = low_y is not None
+    if not lower_found:
+        low_y = H  # 上表行扫描延伸到窗口底; 下表结构留空
 
     upper_cols = _columns_from_header(blocks, up_y)
-    lower_cols = _columns_from_header(blocks, low_y)
+    lower_cols = _columns_from_header(blocks, low_y) if lower_found else {}
 
     upper_rows = _rows_in_range(blocks, up_y + ROW_Y_TOL + 2, low_y - ROW_Y_TOL - 6, upper_cols)
-    lower_rows = _rows_in_range(blocks, low_y + ROW_Y_TOL + 2, H, lower_cols)
+    lower_rows = _rows_in_range(blocks, low_y + ROW_Y_TOL + 2, H, lower_cols) if lower_found else []
 
     # 复选框挂接: 上表区域内匹配, 按y就近挂到行
     if template is not None:
-        for name, rows, ymax in (("up", upper_rows, low_y - 10), ("low", lower_rows, H)):
+        for name, rows, ymax in (("up", upper_rows, low_y - 10 if lower_found else H),
+                                 ("low", lower_rows, H)):
+            if name == "low" and not lower_found:
+                continue
             pts = find_checkboxes(img, template, threshold, 0, ymax)
             # 上表复选框仅取x在左侧区域(前2列宽度内)的点, 避免误匹配
             if rows:
@@ -318,4 +327,6 @@ def read_tables(img, template=None, threshold=0.8) -> TableState:
                 if best is not None and abs(best.y - p[1]) <= 15:
                     best.checkbox = p
 
-    return TableState(True, "ok", up_y, low_y, upper_cols, lower_cols, upper_rows, lower_rows)
+    msg = "ok" if lower_found else "初始态: 下表未显示(点击上表行后出现)"
+    return TableState(True, msg, up_y, low_y, upper_cols, lower_cols, upper_rows, lower_rows,
+                      lower_found=lower_found)

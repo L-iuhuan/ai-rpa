@@ -157,11 +157,11 @@ class Runner:
         self._processed_ys.append(rd.y)
         self._wait_settle()
 
-        # 3) 重读下表(联动刷新后)
+        # 3) 重读下表(联动刷新后; 初始态点击行后下表才出现)
         img2, off2, st2 = self._read()
-        if not st2.ok:
+        if not st2.ok or not getattr(st2, "lower_found", True):
             self.stats["error"] += 1
-            self.log(f"行y={rd.y:.0f}: 联动后重读失败({st2.msg}), 跳过")
+            self.log(f"行y={rd.y:.0f}: 点击选中后下表未出现({st2.msg}), 跳过")
             return "ERROR"
         lowers = self._to_lowers(st2.lower_rows)
         # 过滤掉合计行
