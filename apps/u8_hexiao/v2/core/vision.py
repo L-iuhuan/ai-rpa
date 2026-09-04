@@ -120,19 +120,28 @@ def grab_window(title: str):
     try:
         import pygetwindow as gw
         wins = [w for w in gw.getAllWindows()]
-        idx = _select_window([(w.title or "") for w in wins], title)
-        if idx is None:
-            return None, None
-        w = wins[idx]
+    except Exception:
+        return None, None
+    idx = _select_window([(w.title or "") for w in wins], title)
+    if idx is None:
+        return None, None
+    w = wins[idx]
+    # 2026-09-02修复: 原先整体 try/except 会把"还原/激活失败"吞成"窗口不存在";
+    # 现在还原/激活失败不致命(仍尝试截图), 仅截图本身失败才返回 None
+    try:
         if w.isMinimized:
             w.restore()
-        try:
-            # 拉到前台再截屏: pyautogui截的是屏幕区域, 目标窗口被其他最大化
-            # 窗口遮挡时截到的是遮挡者; run模式的坐标点击也要求窗口在前台
-            w.activate()
-            time.sleep(0.15)
-        except Exception:
-            pass
+            time.sleep(0.2)
+    except Exception:
+        pass
+    try:
+        # 拉到前台再截屏: pyautogui截的是屏幕区域, 目标窗口被其他最大化
+        # 窗口遮挡时截到的是遮挡者; run模式的坐标点击也要求窗口在前台
+        w.activate()
+        time.sleep(0.15)
+    except Exception:
+        pass
+    try:
         left, top = w.left, w.top
         img = pyautogui.screenshot(region=(left, top, w.width, w.height))
         return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR), (left, top)
